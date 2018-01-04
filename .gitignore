@@ -1,0 +1,7 @@
+.env
+.DS_Store
+code/csvformatter/target
+data/input/*
+data/output/*
+neo4j/logs/*
+neo4j/data/databases/*

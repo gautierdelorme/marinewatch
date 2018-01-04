@@ -1,0 +1,71 @@
+#!/bin/bash -e
+#
+# marinewatch-cli - command-line interface for Marinewatch
+
+###########
+## UTILS ##
+###########
+
+usage() {
+    echo "Usage: $(basename $0) [-h] [-b] [-s] [-u <string>]"
+    echo ""
+    echo "  -h  Help. Display this message and quit."
+    echo "  -b  Run batch process."
+    echo "  -s  Start web server."
+    echo "  -u <string>  Update named database."
+    echo ""
+    exit 1
+}
+
+batch() {
+  docker exec -ti marinewatch_cloudera_1 /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local target/csvformatter-0.0.1.jar"
+}
+
+updatedb() {
+  docker exec -ti marinewatch_neo4j_1 /bin/bash -lc "bin/neo4j-admin import --database=$1.db --nodes /data-import/cells.csv/part-00000 --relationships /data-import/relationships.csv/part-00000"
+}
+
+webserver() {
+  ruby ./code/web_api/app.rb
+}
+
+##########
+## MAIN ##
+##########
+
+if [[ $# -eq 0 ]] ; then
+  usage
+fi
+
+while getopts "hbsu:" optchar
+do
+    case "${optchar}" in
+        h)
+            usage
+            ;;
+        b)
+            BATCH=1
+            ;;
+        s)
+            WEBSERVER=1
+            ;;
+        u)
+            DATABASE="$OPTARG"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+if [ ! -z "$BATCH" ]; then
+  batch
+fi
+
+if [ ! -z "$DATABASE" ]; then
+  updatedb "$DATABASE"
+fi
+
+if [ ! -z "$WEBSERVER" ]; then
+  webserver
+fi
