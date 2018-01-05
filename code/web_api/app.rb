@@ -19,7 +19,7 @@ def get_kml(from, to)
 
   q = neo4j_session.query(query, from_latitude: from_latitude, from_longitude: from_longitude, to_latitude: to_latitude, to_longitude: to_longitude).first
 
-  result = JSON.parse(Faraday.post("http://localhost:7474/db/data/node/#{q[:'id(start)']}/path", {
+  JSON.parse(Faraday.post("http://localhost:7474/db/data/node/#{q[:'id(start)']}/path", {
     "to" => "http://localhost:7474/db/data/node/#{q[:'id(end)']}",
     "cost_property" => "cost",
     "relationships" => {
@@ -27,19 +27,22 @@ def get_kml(from, to)
       "direction" => "out"
     },
     "algorithm" => "dijkstra"
-  }).body)
-
-  erb :index, locals: { coordinates: result['nodes'].map do |node_url|
+  }).body)['nodes'].map do |node_url|
     properties = JSON.parse(Faraday.get("#{node_url}/properties").body)
     [properties['latitude'], properties['longitude']]
-  end }
+  end
 end
 
-get '/' do
+get '/route.xml' do
   content_type 'text/xml'
-  get_kml(params[:from], params[:to])
+  erb :route_xml, locals: { coordinates: get_kml(params[:from], params[:to]) }
 end
 
-get '/map' do
-  erb :map, locals: { kml_content: get_kml(params[:from], params[:to]).delete("\n") }
+get '/route.json' do
+  content_type 'application/json'
+  erb :route_json, locals: { coordinates: get_kml(params[:from], params[:to]) }
+end
+
+get '/route' do
+  erb :route, locals: { kml_content: erb(:route_xml, locals: { coordinates: get_kml(params[:from], params[:to]) }).delete("\n") }
 end
