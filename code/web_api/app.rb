@@ -6,11 +6,9 @@ def neo4j_session
   @neo4j_session ||= Neo4j::Core::CypherSession.new(Neo4j::Core::CypherSession::Adaptors::HTTP.new('http://localhost:7474'))
 end
 
-get '/' do
-  content_type 'text/xml'
-
-  from_latitude, from_longitude = params[:from].split(',')
-  to_latitude, to_longitude = params[:to].split(',')
+def get_kml(from, to)
+  from_latitude, from_longitude = from.split(',')
+  to_latitude, to_longitude = to.split(',')
 
   query = """
   MATCH (start:Cell{latitude:{from_latitude}, longitude:{from_longitude}})
@@ -35,4 +33,13 @@ get '/' do
     properties = JSON.parse(Faraday.get("#{node_url}/properties").body)
     [properties['latitude'], properties['longitude']]
   end }
+end
+
+get '/' do
+  content_type 'text/xml'
+  get_kml(params[:from], params[:to])
+end
+
+get '/map' do
+  erb :map, locals: { kml_content: get_kml(params[:from], params[:to]).delete("\n") }
 end
