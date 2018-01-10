@@ -83,7 +83,7 @@
 
     ./marinewatch-cli -s
     # You can try to get the KML result from this endpoint for example
-    # http://localhost:4567/?from=-42.0,24.8&to=21.2,-165.2
+    # http://localhost:4567/route?from=39.4,6.8&to=11.6,96.0
 
 #### All in one command
 
