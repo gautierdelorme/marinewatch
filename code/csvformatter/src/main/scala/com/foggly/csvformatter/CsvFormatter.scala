@@ -4,71 +4,88 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SQLContext
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs._
 
 object CsvFormatter {
-  val threshold = 0
-  val accuracy = 5
-  val latitude_degrees = 180
-  val longitude_degrees = 360
+  val LatitudeDegrees = 180
+  val LongitudeDegrees = 360
+  val CellFilter = "0"
+  val cellsOutput = "cells.csv"
+  val relationshipsOutput = "relationships.csv"
+  val HdfsOuputPath = "output"
+  val LocalOuputPath = "/workdir/data/output"
 
   def main(args: Array[String]) {
     val sc = new SparkContext(new SparkConf().setAppName("CSV Formatter"))
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     import sqlContext.implicits._
 
+    val accuracy = args(0).toInt
     val matrix = sc.textFile(s"input/density-map-from-20160101-to-20161231-$accuracy-probability.csv").zipWithIndex.map{ case (line, index) =>
       (index, line.split(",").zipWithIndex)
     }
-    val costsMap = matrix.flatMap{ case (row, line) =>
+
+    val nodes = matrix.flatMap{ case (row, line) =>
       line.flatMap { case (cell, col) =>
-        if (cell.toFloat > threshold)
-          Some((s"${row}-${col}", cell.toDouble))
-        else
+        if (cell != CellFilter) {
+          val lat = LatitudeDegrees/2 - row/accuracy.toDouble
+          val long = col/accuracy.toDouble - LongitudeDegrees/2
+          Some((s"${row}-${col}", ("%.3f".format(lat), "%.3f".format(long), "Cell")))
+        } else
           None
       }
-    }.collect().toMap
+    }
 
-    matrix.flatMap{ case (row, line) =>
+    val relationships = matrix.flatMap{ case (row, line) =>
       line.flatMap { case (cell, col) =>
-        neighbors(row, col).flatMap { case (n_row, n_col) =>
-          val key = s"${n_row}-${n_col}"
-          if (cell.toFloat > threshold && costsMap.isDefinedAt(key) && costsMap(key) > threshold) {
-            Some((s"${row}-$col", 1/costsMap(key), s"${n_row}-$n_col", "LINKED"))
+        neighbors(row, col, accuracy).flatMap { case (n_row, n_col) =>
+          if (cell != CellFilter) {
+            Some((s"${n_row}-$n_col", (s"${row}-$col", cell)))
           }
           else
             None
         }
       }
-    }.toDF(":START_ID(Cell)", "cost", ":END_ID(Cell)", ":TYPE")
-    .write
-    .format("com.databricks.spark.csv")
-    .option("header", "true")
-    .mode("overwrite")
-    .save("file:///workdir/data/output/relationships.csv")
-
-    matrix.flatMap{ case (row, line) =>
-      line.flatMap { case (cell, col) =>
-        if (cell.toFloat > threshold) {
-          val lat = latitude_degrees/2 - row/accuracy.toDouble
-          val long = col/accuracy.toDouble - longitude_degrees/2
-          Some((s"${row}-${col}", "%.1f".format(lat).toDouble, "%.1f".format(long).toDouble, "Cell"))
-        } else
-          None
+    }.join(nodes).groupByKey.flatMap { case (cell, data) =>
+      data.flatMap { case ((neighbor, cost), _) =>
+        Some((cell, 1/cost.toDouble, neighbor, "LINKED"))
       }
-    }.toDF("id:ID(Cell)", "latitude", "longitude", ":LABEL")
+    }
+
+    nodes.map { case (cell, (lat, long, lbl)) =>
+      (cell, lat, lat, long, long, lbl)
+    }.toDF("id:ID(Cell)", "latitude", "lat:FLOAT", "longitude", "long:FLOAT", ":LABEL")
     .write
     .format("com.databricks.spark.csv")
     .option("header", "true")
     .mode("overwrite")
-    .save("file:///workdir/data/output/cells.csv")
+    .save(s"$HdfsOuputPath/$cellsOutput")
+
+    relationships.toDF(":START_ID(Cell)", "cost:FLOAT", ":END_ID(Cell)", ":TYPE")
+    .write
+    .format("com.databricks.spark.csv")
+    .option("header", "true")
+    .mode("overwrite")
+    .save(s"$HdfsOuputPath/$relationshipsOutput")
+
+    merge(sc, new Path(s"$HdfsOuputPath/$cellsOutput"), new Path(s"$LocalOuputPath/$cellsOutput"))
+    merge(sc, new Path(s"$HdfsOuputPath/$relationshipsOutput"), new Path(s"$LocalOuputPath/$relationshipsOutput"))
   }
 
-  def neighbors(i: Long, j: Long): Seq[(Long, Long)] = for {
+  def neighbors(i: Long, j: Long, accuracy: Int): Seq[(Long, Long)] = for {
     dx <- -1 to 1
     dy <- -1 to 1
-    val n_i = if (i + dy < 0) latitude_degrees*accuracy - 1 else if (i + dy > latitude_degrees*accuracy - 1) 0 else i + dy
-    val n_j = if (j + dx < 0) longitude_degrees*accuracy - 1 else if (j + dx > longitude_degrees*accuracy - 1) 0 else j + dx
+    val n_i = if (i + dy < 0) LatitudeDegrees*accuracy - 1 else if (i + dy > LatitudeDegrees*accuracy - 1) 0 else i + dy
+    val n_j = if (j + dx < 0) LongitudeDegrees*accuracy - 1 else if (j + dx > LongitudeDegrees*accuracy - 1) 0 else j + dx
     if (dx | dy) != 0
   } yield (n_i, n_j)
 
+  def merge(sc: SparkContext, srcPath: Path, dstPath: Path): Unit =  {
+    val hdfs = FileSystem.get(sc.hadoopConfiguration)
+    val lfs = FileSystem.getLocal(sc.hadoopConfiguration)
+    if (lfs.exists(dstPath))
+      lfs.delete(dstPath);
+    FileUtil.copyMerge(hdfs, srcPath, lfs, dstPath, true, sc.hadoopConfiguration, null)
+  }
 }

@@ -7,10 +7,10 @@
 ###########
 
 usage() {
-    echo "Usage: $(basename $0) [-h] [-b] [-s] [-u <string>]"
+    echo "Usage: $(basename $0) [-h] [-b <int>] [-s] [-u <string>]"
     echo ""
     echo "  -h  Help. Display this message and quit."
-    echo "  -b  Run batch process."
+    echo "  -b  <int> Run batch process with specified accuracy."
     echo "  -s  Start web server."
     echo "  -u <string>  Update named database."
     echo ""
@@ -18,11 +18,11 @@ usage() {
 }
 
 batch() {
-  docker exec -ti marinewatch_cloudera_1 /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local target/csvformatter-0.0.1.jar"
+  docker exec -ti marinewatch_cloudera_1 /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local[*] target/csvformatter-0.0.1.jar $1"
 }
 
 updatedb() {
-  docker exec -ti marinewatch_neo4j_1 /bin/bash -lc "bin/neo4j-admin import --database=$1.db --nodes /data-import/cells.csv/part-00000 --relationships /data-import/relationships.csv/part-00000"
+  docker exec -ti marinewatch_neo4j_1 /bin/bash -lc "bin/neo4j-admin import --database=$1.db --nodes /data-import/cells.csv --relationships /data-import/relationships.csv"
 }
 
 webserver() {
@@ -37,14 +37,14 @@ if [[ $# -eq 0 ]] ; then
   usage
 fi
 
-while getopts "hbsu:" optchar
+while getopts "hb:u:s" optchar
 do
     case "${optchar}" in
         h)
             usage
             ;;
         b)
-            BATCH=1
+            ACCURACY="$OPTARG"
             ;;
         s)
             WEBSERVER=1
@@ -58,8 +58,8 @@ do
     esac
 done
 
-if [ ! -z "$BATCH" ]; then
-  batch
+if [ ! -z "$ACCURACY" ]; then
+  batch "$ACCURACY"
 fi
 
 if [ ! -z "$DATABASE" ]; then

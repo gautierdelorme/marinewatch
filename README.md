@@ -87,13 +87,13 @@
 
 #### All in one command
 
-    ./marinewatch-cli -bsu dbname
+    ./marinewatch-cli -s -b 40 -u dbname
 
 ## Improvements to do
 
-- Improve speed
-- Use datasets with better accuracy (1/40)
-- Do not restrict cost (used by dijkstra algorithm) to boats density
+- ✅ ~~Improve speed~~
+- ✅ ~~Use datasets with better accuracy (1/40)~~
+- Do not restrict cost to boats density
 - Add Spark Streaming processing
 - ...
 

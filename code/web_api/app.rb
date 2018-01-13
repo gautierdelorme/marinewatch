@@ -10,28 +10,19 @@ def get_kml(from, to)
   from_latitude, from_longitude = from.split(',')
   to_latitude, to_longitude = to.split(',')
 
-  q = neo4j_session.query("""
-  MATCH (start:Cell{latitude:{from_latitude}, longitude:{from_longitude}})
-  with start
-  MATCH (end:Cell{latitude:{to_latitude}, longitude:{to_longitude}})
-  RETURN id(start), id(end)
-  """, from_latitude: from_latitude, from_longitude: from_longitude, to_latitude: to_latitude, to_longitude: to_longitude).first
-
-  node_ids = JSON.parse(Faraday.post("http://localhost:7474/db/data/node/#{q[:'id(start)']}/path", {
-    "to" => "http://localhost:7474/db/data/node/#{q[:'id(end)']}",
-    "cost_property" => "cost",
-    "relationships" => {
-      "type" => "LINKED",
-      "direction" => "out"
-    },
-    "algorithm" => "dijkstra"
-  }).body)['nodes'].map do |n|
-    n.split('/').last.to_i
-  end
-
-  neo4j_session.query("""
-  MATCH (u:Cell) WHERE ID(u) IN {ids} RETURN u
-  """, ids: node_ids).rows.map(&:first).map do |n|
+  neo4j_session.query(
+    """
+    MATCH (start:Cell{latitude:{from_latitude}, longitude:{from_longitude}})
+    WITH start
+    MATCH (end:Cell{latitude:{to_latitude}, longitude:{to_longitude}})
+    CALL apoc.algo.aStar(start, end, 'LINKED>', 'cost','lat','long') YIELD path
+    RETURN path
+    """,
+    from_latitude: from_latitude,
+    from_longitude: from_longitude,
+    to_latitude: to_latitude,
+    to_longitude: to_longitude
+  ).first[:path].nodes.map do |n|
     [n.properties[:latitude], n.properties[:longitude]]
   end
 end
