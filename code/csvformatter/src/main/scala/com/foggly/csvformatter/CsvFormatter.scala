@@ -6,6 +6,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.SQLContext
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import sys.process._
 
 object CsvFormatter {
   val LatitudeDegrees = 180
@@ -29,8 +30,9 @@ object CsvFormatter {
     val nodes = matrix.flatMap{ case (row, line) =>
       line.flatMap { case (cell, col) =>
         if (cell != CellFilter) {
-          val lat = LatitudeDegrees/2 - row/accuracy.toDouble
-          val long = col/accuracy.toDouble - LongitudeDegrees/2
+          val coeff = accuracy.toDouble
+          val lat = LatitudeDegrees/2 - row/coeff
+          val long = col/coeff - LongitudeDegrees/2
           Some((s"${row}-${col}", ("%.3f".format(lat), "%.3f".format(long), "Cell")))
         } else
           None
@@ -48,8 +50,8 @@ object CsvFormatter {
         }
       }
     }.join(nodes).groupByKey.flatMap { case (cell, data) =>
-      data.flatMap { case ((neighbor, cost), _) =>
-        Some((cell, 1/cost.toDouble, neighbor, "LINKED"))
+      data.map { case ((neighbor, cost), _) =>
+        (cell, 1/cost.toDouble, neighbor, "LINKED")
       }
     }
 
@@ -69,8 +71,13 @@ object CsvFormatter {
     .mode("overwrite")
     .save(s"$HdfsOuputPath/$relationshipsOutput")
 
-    merge(sc, new Path(s"$HdfsOuputPath/$cellsOutput"), new Path(s"$LocalOuputPath/$cellsOutput"))
-    merge(sc, new Path(s"$HdfsOuputPath/$relationshipsOutput"), new Path(s"$LocalOuputPath/$relationshipsOutput"))
+    merge(sc, new Path(s"$HdfsOuputPath/$cellsOutput"), new Path(s"/tmp/$cellsOutput"))
+    merge(sc, new Path(s"$HdfsOuputPath/$relationshipsOutput"), new Path(s"/tmp/$relationshipsOutput"))
+
+    // clean duplicated headers after hadoop merging
+    Seq("/bin/bash", "-c", s"sed -i -e '1b' -e '/LABEL/d' /tmp/$cellsOutput").!
+    Seq("/bin/bash", "-c", s"sed -i -e '1b' -e '/TYPE/d' /tmp/$relationshipsOutput").!
+    Seq("/bin/bash", "-c", s"mv /tmp/$relationshipsOutput /tmp/$cellsOutput $LocalOuputPath").!
   }
 
   def neighbors(i: Long, j: Long, accuracy: Int): Seq[(Long, Long)] = for {
