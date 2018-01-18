@@ -7,22 +7,37 @@
 ###########
 
 usage() {
-    echo "Usage: $(basename $0) [-h] [-b <int>] [-s] [-u <string>]"
+    echo "Usage: $(basename $0) [-h] [-b <int>] [-s] [-u <string>] [-d <string>]"
     echo ""
     echo "  -h  Help. Display this message and quit."
     echo "  -b  <int> Run batch process with specified accuracy."
     echo "  -s  Start web server."
-    echo "  -u <string>  Update named database."
+    echo "  -u <string>  Create new database with name."
+    echo "  -d <string>  Start database with name."
     echo ""
     exit 1
 }
 
 batch() {
-  docker exec -ti marinewatch_cloudera_1 /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local[*] target/csvformatter-0.0.1.jar $1"
+  docker-compose up -d cloudera &&
+  docker-compose exec cloudera /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local[*] target/csvformatter-0.0.1.jar $1"
 }
 
 updatedb() {
-  docker exec -ti marinewatch_neo4j_1 /bin/bash -lc "bin/neo4j-admin import --database=$1.db --nodes /data-import/cells.csv --relationships /data-import/relationships.csv"
+  docker-compose up -d neo4j &&
+  docker-compose exec neo4j /bin/bash -lc "bin/neo4j-admin import --database=$1.db --nodes /data-import/cells.csv --relationships /data-import/relationships.csv" &&
+  docker-compose stop neo4j &&
+  sed -i '' 's/NEO4J_dbms_active__database=.*/NEO4J_dbms_active__database='"$1"'.db/' neo4j.env &&
+  docker-compose up -d neo4j &&
+  echo "Waiting for neo4j to start..." &&
+  sleep 5 &&
+  docker-compose exec neo4j /bin/bash -lc "echo \"CREATE INDEX ON :Cell(latitude, longitude);\" | bin/cypher-shell"
+}
+
+startdb() {
+  docker-compose stop neo4j &&
+  sed -i '' 's/NEO4J_dbms_active__database=.*/NEO4J_dbms_active__database='"$1"'.db/' neo4j.env &&
+  docker-compose up -d neo4j
 }
 
 webserver() {
@@ -37,7 +52,7 @@ if [[ $# -eq 0 ]] ; then
   usage
 fi
 
-while getopts "hb:u:s" optchar
+while getopts "hb:u:d:s" optchar
 do
     case "${optchar}" in
         h)
@@ -52,6 +67,9 @@ do
         u)
             DATABASE="$OPTARG"
             ;;
+        d)
+            EXISTING_DATABASE="$OPTARG"
+            ;;
         *)
             usage
             ;;
@@ -64,6 +82,10 @@ fi
 
 if [ ! -z "$DATABASE" ]; then
   updatedb "$DATABASE"
+fi
+
+if [ ! -z "$EXISTING_DATABASE" ]; then
+  startdb "$EXISTING_DATABASE"
 fi
 
 if [ ! -z "$WEBSERVER" ]; then

@@ -74,16 +74,19 @@
 #### Create Neo4j database
 
     ./marinewatch-cli -u dbname
-    # To update default db name in Neo4j change this line in neo4j/conf/neo4j.conf
-    # dbms.active_database=dbname.db
-    # and restart the container
-    # docker restart marinewatch_neo4j_1
+    # create new database named dbname
+    # import new data inside, start the database
+    # create an index on (latitude,longitude)
+
+#### Start existing Neo4j database
+
+    ./marinewatch-cli -d dbname
 
 #### Start web API
 
     ./marinewatch-cli -s
     # You can try to get the KML result from this endpoint for example
-    # http://localhost:4567/route?from=39.4,6.8&to=11.6,96.0
+    # http://localhost:4567/route?from=39.425,6.825&to=6.225,103.050
 
 #### All in one command
 
