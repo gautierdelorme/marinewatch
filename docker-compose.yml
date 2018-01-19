@@ -20,4 +20,4 @@ services:
     hostname: quickstart.cloudera
     volumes:
       - ./data:/workdir/data
-      - ./code/csvformatter:/workdir/code
+      - ./code/mwspark:/workdir/code

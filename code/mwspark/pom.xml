@@ -15,11 +15,11 @@
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.foggly.csvformatter</groupId>
-  <artifactId>csvformatter</artifactId>
+  <groupId>com.foggly.mwspark</groupId>
+  <artifactId>mwspark</artifactId>
   <version>0.0.1</version>
   <packaging>jar</packaging>
-  <name>"CSV Formatter"</name>
+  <name>"MarineWatch Spark"</name>
 
   <repositories>
     <repository>
@@ -74,6 +74,37 @@
           <target>1.6</target>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <relocations>
+                <relocation>
+                    <pattern>org.apache.http</pattern>
+                    <shadedPattern>shaded.org.apache.http</shadedPattern>
+                </relocation>
+              </relocations>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
@@ -97,6 +128,26 @@
       <groupId>com.databricks</groupId>
       <artifactId>spark-csv_2.10</artifactId>
       <version>1.5.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-streaming_2.11</artifactId>
+      <version>2.2.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.json4s</groupId>
+      <artifactId>json4s-native_2.10</artifactId>
+      <version>3.2.11</version>
+    </dependency>
+    <dependency>
+      <groupId>org.neo4j.driver</groupId>
+      <artifactId>neo4j-java-driver</artifactId>
+      <version>1.0.4</version>
     </dependency>
   </dependencies>
 </project>

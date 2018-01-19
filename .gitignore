@@ -1,7 +1,10 @@
 .env
 .DS_Store
-code/csvformatter/target
+code/mwspark/target
+code/mwspark/dependency-reduced-pom.xml
+code/mwspark/derby.log
 data/input/*
 data/output/*
 neo4j/logs/*
 neo4j/data/databases/*
+neo4j.env
