@@ -1,4 +1,4 @@
-package com.foggly.csvformatter
+package com.foggly.mwspark
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
@@ -8,7 +8,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import sys.process._
 
-object CsvFormatter {
+object BatchProcess {
   val LatitudeDegrees = 180
   val LongitudeDegrees = 360
   val CellFilter = "0"
@@ -18,7 +18,7 @@ object CsvFormatter {
   val LocalOuputPath = "/workdir/data/output"
 
   def main(args: Array[String]) {
-    val sc = new SparkContext(new SparkConf().setAppName("CSV Formatter"))
+    val sc = new SparkContext(new SparkConf().setAppName("MarineWatchBatchProcess"))
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     import sqlContext.implicits._
 

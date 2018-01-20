@@ -7,20 +7,27 @@
 ###########
 
 usage() {
-    echo "Usage: $(basename $0) [-h] [-b <int>] [-s] [-u <string>] [-d <string>]"
+    echo "Usage: $(basename $0) [-h] [-b <int>] [-c <string>] [-u <string>] [-d <string>] [-s] [-t]"
     echo ""
     echo "  -h  Help. Display this message and quit."
-    echo "  -b  <int> Run batch process with specified accuracy."
+    echo "  -b  <int>  Run batch process with specified accuracy."
+    echo "  -c  <string>  Run streaming process listening on specified address."
+    echo "  -u  <string>  Create new database with name."
+    echo "  -d  <string>  Start database with name."
     echo "  -s  Start web server."
-    echo "  -u <string>  Create new database with name."
-    echo "  -d <string>  Start database with name."
+    echo "  -t  Start streaming server."
     echo ""
     exit 1
 }
 
 batch() {
   docker-compose up -d cloudera &&
-  docker-compose exec cloudera /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.csvformatter.CsvFormatter --master local[*] target/csvformatter-0.0.1.jar $1"
+  docker-compose exec cloudera /bin/bash -lc "mvn package && spark-submit --packages com.databricks:spark-csv_2.10:1.5.0 --class com.foggly.mwspark.BatchProcess --master local[*] target/mwspark-0.0.1.jar $1"
+}
+
+streaming() {
+  docker-compose up -d cloudera &&
+  docker-compose exec cloudera /bin/bash -lc "mvn package && spark-submit --class com.foggly.mwspark.StreamingProcess --master local[*] target/mwspark-0.0.1.jar $1"
 }
 
 updatedb() {
@@ -44,6 +51,10 @@ webserver() {
   ruby ./code/web_api/app.rb
 }
 
+streamingserver() {
+  ruby ./code/streaming_api/app.rb
+}
+
 ##########
 ## MAIN ##
 ##########
@@ -52,7 +63,7 @@ if [[ $# -eq 0 ]] ; then
   usage
 fi
 
-while getopts "hb:u:d:s" optchar
+while getopts "hb:c:u:d:st" optchar
 do
     case "${optchar}" in
         h)
@@ -61,8 +72,14 @@ do
         b)
             ACCURACY="$OPTARG"
             ;;
+        c)
+            STREAMING="$OPTARG"
+            ;;
         s)
             WEBSERVER=1
+            ;;
+        t)
+            STREAMINGSERVER=1
             ;;
         u)
             DATABASE="$OPTARG"
@@ -80,6 +97,10 @@ if [ ! -z "$ACCURACY" ]; then
   batch "$ACCURACY"
 fi
 
+if [ ! -z "$STREAMING" ]; then
+  streaming "$STREAMING"
+fi
+
 if [ ! -z "$DATABASE" ]; then
   updatedb "$DATABASE"
 fi
@@ -90,4 +111,8 @@ fi
 
 if [ ! -z "$WEBSERVER" ]; then
   webserver
+fi
+
+if [ ! -z "$STREAMINGSERVER" ]; then
+  streamingserver
 fi
