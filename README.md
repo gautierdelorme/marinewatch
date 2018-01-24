@@ -1,5 +1,23 @@
 # Marinewatch
 
+## Overview
+
+### General
+
+![marinwatch](https://user-images.githubusercontent.com/6973663/35242375-b0621ef4-ffb9-11e7-93c3-5ed068249582.png)
+
+### Lambda Architecture
+
+![marinwatch_spark_neo4j](https://user-images.githubusercontent.com/6973663/35242373-b020bf90-ffb9-11e7-86cf-4781b2076300.png)
+
+### Batch processing
+
+![marinwatch_batch_processing](https://user-images.githubusercontent.com/6973663/35242372-b004e39c-ffb9-11e7-94e0-02ce4d3f9542.png)
+
+### Streaming Processing
+
+![marinwatch_streaming_processing](https://user-images.githubusercontent.com/6973663/35332611-d940165c-010b-11e8-921c-60c1cd1a9414.png)
+
 ## Developer setup
 
 ### Requirements
