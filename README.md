@@ -1,5 +1,7 @@
 # Marinewatch
 
+**See the [slides](slides.pdf) or the [report](report.pdf) (french) for details.**
+
 ## Overview
 
 ### General
