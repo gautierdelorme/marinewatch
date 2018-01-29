@@ -31,7 +31,7 @@
 
 #### Go to the project directory
 
-    git clone git@github.com:fogglyorg/marinewatch.git
+    git clone git@github.com:gautierdelorme/marinewatch.git
     cd marinewatch
 
 #### Start docker containers
